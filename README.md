@@ -37,9 +37,11 @@ h('input', { type: 'text', placeholder: 'Name' });
 
 ### 4. Event handling
 ```js
-import { on, emit } from './core.js';
+import { on, once, off, emit } from './core.js';
 on('customEvent', data => console.log(data));
+once('oneTimeEvent', data => console.log('Called once:', data));
 emit('customEvent', { foo: 1 });
+off('customEvent', handler); // Remove specific handler
 ```
 
 ### 5. State management
@@ -50,11 +52,15 @@ store.subscribe(state => console.log(state));
 store.setState({ count: 1 });
 ```
 
-### 6. Routing (stub)
+### 6. Routing
 ```js
 import { createRouter } from './core.js';
-const router = createRouter({ '/': Home, '/game': Game });
-router.start();
+const router = createRouter({ '/': 'all', '/active': 'active', '/completed': 'completed' });
+// Router starts automatically and listens to hash changes
+// Navigate programmatically:
+router.navigate('/active');
+// Stop the router:
+router.stop();
 ```
 
 ### 7. Mounting the app
@@ -62,6 +68,33 @@ router.start();
 import { mount } from './core.js';
 mount(document.getElementById('app'), view, store);
 ```
+
+## How the Framework Works
+
+### Core Architecture
+The framework is built around three main concepts:
+
+1. **Virtual DOM (VNode)**: Elements are represented as plain JavaScript objects using the `h()` function
+2. **Observable State Store**: Centralized state management with subscription-based updates
+3. **Event Bus**: Decoupled communication between components using custom events
+
+### Rendering Process
+1. **State Change**: When `store.setState()` is called, the store notifies all subscribers
+2. **Batched Updates**: The mount function batches updates using `requestAnimationFrame` for optimal performance
+3. **Smart Re-rendering**: The framework optimizes input updates to avoid full re-renders during typing
+4. **Focus Preservation**: Cursor position and focus state are preserved across re-renders
+
+### Event Handling
+Events are handled through a custom event bus system:
+- DOM events are captured and re-emitted through the event bus
+- Components listen for these events using `on()` 
+- This decouples event handling from DOM structure
+
+### Router Integration  
+The router uses hash-based navigation and integrates with the event bus:
+- Route changes emit 'route' events
+- Components can listen for route changes and update state accordingly
+- Automatic initialization based on current URL hash
 
 ## Performance Notes
 - Virtual DOM diff/patch is minimal for rapid updates (critical for Bomberman)
