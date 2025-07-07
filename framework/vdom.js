@@ -19,9 +19,13 @@ export function createElement(vnode) {
   // Set attributes and event handlers
   for (const [k, v] of Object.entries(vnode.attrs || {})) {
     if (k.startsWith('on') && typeof v === 'string') {
-      // e.g., oninput: 'inputTodo', onkeydown: 'addTodo', onclick: 'deleteTodo'
+      // Custom event handling without addEventListener
       const eventType = k.slice(2).toLowerCase();
-      el.addEventListener(eventType, e => emit(v, e));
+      
+      // Use direct property assignment instead of addEventListener
+      el[`on${eventType}`] = (e) => {
+        emit(v, e);
+      };
     } else if (v != null && v !== false) {
       if (k === 'checked' && v === 'checked') {
         el.checked = true;

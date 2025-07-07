@@ -35,13 +35,23 @@ export function createRouter(routes) {
   function navigate(path) {
     location.hash = path;
   }
-  window.addEventListener('hashchange', render);
+  
+  // Custom event handling without addEventListener
+  const oldHashChangeHandler = window.onhashchange;
+  window.onhashchange = (e) => {
+    render();
+    // Call previous handler if it existed
+    if (oldHashChangeHandler) oldHashChangeHandler(e);
+  };
+  
   // Initial render
   render();
   return {
     get current() { return current; },
     navigate,
-    stop() { window.removeEventListener('hashchange', render); }
+    stop() { 
+      window.onhashchange = oldHashChangeHandler;
+    }
   };
 }
 
