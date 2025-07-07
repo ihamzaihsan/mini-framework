@@ -71,7 +71,7 @@ function view(state) {
       h('ul', { class: 'todo-list' },
         ...filteredTodos(state).map(todo =>
           h('li', {
-            class: todo.completed ? 'completed' : '',
+            class: `${todo.completed ? 'completed' : ''} ${todo.editing ? 'editing' : ''}`.trim(),
             'data-id': todo.id
           },
             h('div', { class: 'view' },
@@ -225,6 +225,15 @@ on('editTodo', e => {
       t.id === id ? { ...t, editing: true } : { ...t, editing: false }
     )
   });
+  
+  // Focus the edit input after DOM update
+  setTimeout(() => {
+    const editInput = document.querySelector(`.edit[data-id="${id}"]`);
+    if (editInput) {
+      editInput.focus();
+      editInput.select();
+    }
+  }, 0);
 });
 
 // Finish editing
