@@ -47,25 +47,60 @@ export function createRouter(routes) {
 
 // App mounting with batching and requestAnimationFrame
 export function mount(root, view, store) {
-  let vdom = view(store.getState());
-  let node = createElement(vdom);
-  root.appendChild(node);
   let scheduled = false;
-  let latestState = store.getState();
+  let previousState = store.getState();
 
   function render() {
-    const newVdom = view(latestState);
-    const patches = diff(vdom, newVdom);
-    patch(root, patches, 0);
-    vdom = newVdom;
+    const currentState = store.getState();
+
+    // Check if only the newTodo value changed (input typing)
+    const onlyInputChanged =
+      previousState.todos === currentState.todos &&
+      previousState.currentFilter === currentState.currentFilter &&
+      previousState.newTodo !== currentState.newTodo;
+
+    if (onlyInputChanged) {
+      // Just update the input value directly without full re-render
+      const inputElement = root.querySelector('#new-todo');
+      if (inputElement && inputElement.value !== currentState.newTodo) {
+        const cursorPosition = inputElement.selectionStart;
+        inputElement.value = currentState.newTodo;
+        inputElement.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    } else {
+      // Full re-render for other changes (todos, filters, etc.)
+      // Save input focus state before re-render
+      const inputElement = root.querySelector('#new-todo');
+      const hadFocus = inputElement && document.activeElement === inputElement;
+      const cursorPosition = hadFocus ? inputElement.selectionStart : 0;
+
+      // Clear and re-render
+      const newVdom = view(currentState);
+      const newNode = createElement(newVdom);
+      root.innerHTML = '';
+      root.appendChild(newNode);
+
+      // Restore input focus if it had focus before
+      if (hadFocus) {
+        const newInputElement = root.querySelector('#new-todo');
+        if (newInputElement) {
+          newInputElement.focus();
+          newInputElement.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      }
+    }
+
+    previousState = { ...currentState };
     scheduled = false;
   }
 
+  // Initial render
+  render();
+
   store.subscribe(state => {
-    latestState = state;
     if (!scheduled) {
       scheduled = true;
       requestAnimationFrame(render);
     }
   });
-} 
+}

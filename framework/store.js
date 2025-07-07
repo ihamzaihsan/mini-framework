@@ -1,18 +1,24 @@
 // Minimal observable state store for reactive updates
 
-let listeners = [];
-let state = {};
-let batching = false;
-let pending = false;
-
 export function createStore(initialState) {
-  state = { ...initialState };
+  let listeners = [];
+  let state = { ...initialState };
+  let batching = false;
+  let pending = false;
+
+  function notify() {
+    listeners.forEach(fn => fn(state));
+  }
+
   return {
     getState: () => state,
     setState: (patch) => {
       Object.assign(state, patch);
-      if (!batching) notify();
-      else pending = true;
+      if (!batching) {
+        notify();
+      } else {
+        pending = true;
+      }
     },
     subscribe: (fn) => {
       listeners.push(fn);
@@ -27,7 +33,3 @@ export function createStore(initialState) {
     }
   };
 }
-
-function notify() {
-  listeners.forEach(fn => fn(state));
-} 
