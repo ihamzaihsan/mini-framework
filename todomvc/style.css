@@ -304,7 +304,8 @@ h2 {
 }
 
 .clear-completed,
-.clear-all {
+.clear-all,
+.select-all {
   position: relative;
   line-height: 20px;
   text-decoration: none;
@@ -318,7 +319,8 @@ h2 {
 }
 
 .clear-completed:hover,
-.clear-all:hover {
+.clear-all:hover,
+.select-all:hover {
   text-decoration: underline;
   border-color: rgba(175, 47, 47, 0.1);
 }
@@ -330,4 +332,13 @@ h2 {
 
 .clear-all:hover {
   color: #af5b5e;
+}
+
+.select-all {
+  color: #4d7c0f;
+  font-weight: bold;
+}
+
+.select-all:hover {
+  color: #365314;
 }

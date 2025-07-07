@@ -129,12 +129,18 @@ function view(state) {
             class: state.currentFilter === 'completed' ? 'selected' : ''
           }, 'Completed')
         ),
-        hasCompletedTodos ? h('li', {},
+        hasCompletedTodos ?        h('li', {},
           h('button', {
             class: 'clear-completed',
             onclick: 'clearCompleted'
           }, 'Clear completed')
         ) : null,
+        h('li', {},
+          h('button', {
+            class: 'select-all',
+            onclick: 'selectAll'
+          }, activeTodos.length === 0 ? 'Unselect all' : 'Select all')
+        ),
         h('li', {},
           h('button', {
             class: 'clear-all',
@@ -213,6 +219,19 @@ on('clearAll', e => {
   if (e.target.classList.contains('clear-all')) {
     store.setState({
       todos: []
+    });
+  }
+});
+
+// Select/Unselect all todos
+on('selectAll', e => {
+  if (e.target.classList.contains('select-all')) {
+    const currentState = store.getState();
+    const activeTodos = currentState.todos.filter(t => !t.completed);
+    const shouldSelectAll = activeTodos.length > 0;
+    
+    store.setState({
+      todos: currentState.todos.map(t => ({ ...t, completed: shouldSelectAll }))
     });
   }
 });
