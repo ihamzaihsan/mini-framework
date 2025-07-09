@@ -21,27 +21,28 @@ export function emit(event, data) {
   (events[event] || []).forEach(fn => fn(data));
 }
 
-// Minimal hash-based Router
+// Minimal path-based Router
 export function createRouter(routes) {
   let current = null;
   function getRoute() {
-    const hash = location.hash.replace(/^#/, '') || '/';
-    return routes[hash] ? hash : '/';
+    const path = location.pathname || '/';
+    return routes[path] ? path : '/';
   }
   function render() {
     current = getRoute();
     emit('route', current);
   }
   function navigate(path) {
-    location.hash = path;
+    history.pushState(null, null, path);
+    render();
   }
   
   // Custom event handling without addEventListener
-  const oldHashChangeHandler = window.onhashchange;
-  window.onhashchange = (e) => {
+  const oldPopStateHandler = window.onpopstate;
+  window.onpopstate = (e) => {
     render();
     // Call previous handler if it existed
-    if (oldHashChangeHandler) oldHashChangeHandler(e);
+    if (oldPopStateHandler) oldPopStateHandler(e);
   };
   
   // Initial render
@@ -50,7 +51,7 @@ export function createRouter(routes) {
     get current() { return current; },
     navigate,
     stop() { 
-      window.onhashchange = oldHashChangeHandler;
+      window.onpopstate = oldPopStateHandler;
     }
   };
 }

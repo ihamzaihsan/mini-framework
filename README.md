@@ -56,7 +56,7 @@ store.setState({ count: 1 });
 ```js
 import { createRouter } from './core.js';
 const router = createRouter({ '/': 'all', '/active': 'active', '/completed': 'completed' });
-// Router starts automatically and listens to hash changes
+// Router starts automatically and listens to path changes
 // Navigate programmatically:
 router.navigate('/active');
 // Stop the router:
@@ -91,10 +91,11 @@ Events are handled through a custom event bus system:
 - This decouples event handling from DOM structure
 
 ### Router Integration  
-The router uses hash-based navigation and integrates with the event bus:
+The router uses path-based navigation and integrates with the event bus:
 - Route changes emit 'route' events
 - Components can listen for route changes and update state accordingly
-- Automatic initialization based on current URL hash
+- Automatic initialization based on current URL path
+- Server-side routing support for single-page applications
 
 ## Performance Notes
 - Virtual DOM diff/patch is minimal for rapid updates (critical for Bomberman)

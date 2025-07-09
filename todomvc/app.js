@@ -30,7 +30,7 @@ const routes = {
 };
 
 // Initialize filter based on current route
-const currentRoute = window.location.hash.replace(/^#/, '') || '/';
+const currentRoute = window.location.pathname || '/';
 const initialFilter = routes[currentRoute] || 'all';
 
 const initialState = {
@@ -113,20 +113,26 @@ function view(state) {
       h('ul', { class: 'filters' },
         h('li', {},
           h('a', {
-            href: '#/',
-            class: state.currentFilter === 'all' ? 'selected' : ''
+            href: '/',
+            class: state.currentFilter === 'all' ? 'selected' : '',
+            onclick: 'navigateToRoute',
+            'data-route': '/'
           }, 'All')
         ),
         h('li', {},
           h('a', {
-            href: '#/active',
-            class: state.currentFilter === 'active' ? 'selected' : ''
+            href: '/active',
+            class: state.currentFilter === 'active' ? 'selected' : '',
+            onclick: 'navigateToRoute',
+            'data-route': '/active'
           }, 'Active')
         ),
         h('li', {},
           h('a', {
-            href: '#/completed',
-            class: state.currentFilter === 'completed' ? 'selected' : ''
+            href: '/completed',
+            class: state.currentFilter === 'completed' ? 'selected' : '',
+            onclick: 'navigateToRoute',
+            'data-route': '/completed'
           }, 'Completed')
         ),
         hasCompletedTodos ?        h('li', {},
@@ -289,6 +295,15 @@ on('handleEditKeydown', e => {
         )
       });
     }
+  }
+});
+
+// Handle navigation clicks
+on('navigateToRoute', e => {
+  e.preventDefault();
+  const route = e.target.getAttribute('data-route');
+  if (route) {
+    router.navigate(route);
   }
 });
 
