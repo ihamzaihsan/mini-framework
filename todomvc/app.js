@@ -19,6 +19,7 @@ function saveTodos(todos) {
     localStorage.setItem('todos-mini-framework', JSON.stringify(todos));
   } catch (e) {
     console.warn('Failed to save todos to localStorage:', e);
+    handleError(new Error('Failed to save todos. Storage may be full.'), 'server');
   }
 }
 
@@ -31,12 +32,14 @@ const routes = {
 
 // Initialize filter based on current route
 const currentRoute = window.location.pathname || '/';
-const initialFilter = routes[currentRoute] || 'all';
+const initialFilter = routes[currentRoute] || null;
 
 const initialState = {
   todos: loadTodos(),
   newTodo: '',
-  currentFilter: initialFilter
+  currentFilter: initialFilter,
+  error: null, // For error handling (404, 500, etc.)
+  errorType: null // 'network', 'notfound', 'server', etc.
 };
 
 const store = createStore(initialState);
@@ -49,7 +52,102 @@ function filteredTodos(state) {
   return state.todos;
 }
 
+// Error handling functions
+function handleError(error, type = 'server') {
+  console.error('Application error:', error);
+  store.setState({
+    error: error.message || 'An unexpected error occurred',
+    errorType: type
+  });
+}
+
+function clearError() {
+  store.setState({
+    error: null,
+    errorType: null
+  });
+}
+
+// 404 Error View
+function notFoundView() {
+  return h('div', { class: 'error-container' },
+    h('div', { class: 'error-content' },
+      h('h1', { 
+        class: 'error-code',
+        'data-type': '404'
+      }, '404'),
+      h('h2', { class: 'error-message' }, 'Page Not Found'),
+      h('p', { class: 'error-description' }, 
+        'The page you are looking for does not exist. It might have been moved, deleted, or you entered the wrong URL.'
+      ),
+      h('div', { class: 'available-routes' },
+        h('h3', { class: 'routes-title' }, 'Available Pages:'),
+        h('div', { class: 'routes-list' },
+          ...Object.entries(routes).map(([path, filter]) =>
+            h('a', {
+              href: path,
+              class: 'route-link',
+              onclick: 'navigateToRoute',
+              'data-route': path
+            }, `${path} (${filter.charAt(0).toUpperCase() + filter.slice(1)} todos)`)
+          )
+        )
+      ),
+      h('div', { class: 'error-actions' },
+        h('button', {
+          class: 'error-button',
+          onclick: 'goHome'
+        }, 'Go Home'),
+        h('button', {
+          class: 'error-button secondary',
+          onclick: 'goBack'
+        }, 'Go Back')
+      )
+    )
+  );
+}
+
+// 500 Error View
+function serverErrorView(error) {
+  return h('div', { class: 'error-container' },
+    h('div', { class: 'error-content' },
+      h('h1', { 
+        class: 'error-code',
+        'data-type': '500'
+      }, '500'),
+      h('h2', { class: 'error-message' }, 'Internal Server Error'),
+      h('p', { class: 'error-description' }, 
+        error || 'Something went wrong on our end. Our team has been notified and is working to fix the issue. Please try again later.'
+      ),
+      h('div', { class: 'error-actions' },
+        h('button', {
+          class: 'error-button',
+          onclick: 'retryAction'
+        }, 'Try Again'),
+        h('button', {
+          class: 'error-button secondary',
+          onclick: 'clearError'
+        }, 'Dismiss')
+      )
+    )
+  );
+}
+
 function view(state) {
+  // Handle error states
+  if (state.error) {
+    if (state.errorType === 'notfound') {
+      return notFoundView();
+    } else if (state.errorType === 'server') {
+      return serverErrorView(state.error);
+    }
+  }
+
+  // Handle 404 - unknown filter
+  if (state.currentFilter === null) {
+    return notFoundView();
+  }
+
   const activeTodos = state.todos.filter(t => !t.completed);
   const completedTodos = state.todos.filter(t => t.completed);
   const hasCompletedTodos = completedTodos.length > 0;
@@ -166,17 +264,21 @@ store.subscribe(state => {
 });
 
 on('addTodo', e => {
-  if (e.target.id === 'new-todo' && e.key === 'Enter') {
-    const text = e.target.value.trim();
-    if (text) {
-      store.setState({
-        todos: [
-          ...store.getState().todos,
-          { id: Date.now(), text, completed: false, editing: false }
-        ],
-        newTodo: ''
-      });
+  try {
+    if (e.target.id === 'new-todo' && e.key === 'Enter') {
+      const text = e.target.value.trim();
+      if (text) {
+        store.setState({
+          todos: [
+            ...store.getState().todos,
+            { id: Date.now(), text, completed: false, editing: false }
+          ],
+          newTodo: ''
+        });
+      }
     }
+  } catch (error) {
+    handleError(error, 'server');
   }
 });
 
@@ -308,6 +410,71 @@ on('navigateToRoute', e => {
 });
 
 on('route', (currentRoute) => {
-  const filter = routes[currentRoute] || 'all';
-  store.setState({ currentFilter: filter });
+  const filter = routes[currentRoute];
+  if (filter) {
+    store.setState({ 
+      currentFilter: filter,
+      error: null,
+      errorType: null
+    });
+  } else {
+    // 404 - Route not found
+    store.setState({ 
+      currentFilter: null,
+      error: 'Page not found',
+      errorType: 'notfound'
+    });
+  }
+});
+
+// Error handling event listeners
+on('goHome', e => {
+  if (e.target.classList.contains('error-button')) {
+    router.navigate('/');
+  }
+});
+
+on('goBack', e => {
+  if (e.target.classList.contains('error-button')) {
+    history.back();
+  }
+});
+
+on('retryAction', e => {
+  if (e.target.classList.contains('error-button')) {
+    // Retry the last action or just clear the error
+    clearError();
+    // You could implement more sophisticated retry logic here
+  }
+});
+
+on('clearError', e => {
+  if (e.target.classList.contains('error-button')) {
+    clearError();
+  }
+});
+
+// Global error handler for unhandled errors
+window.addEventListener('error', (event) => {
+  handleError(new Error(event.message || 'An unexpected error occurred'), 'server');
+});
+
+// Global error handler for unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  handleError(new Error(event.reason || 'An unexpected error occurred'), 'server');
+});
+
+// Debug event handlers for testing error states
+on('trigger404', e => {
+  store.setState({
+    error: 'Page not found',
+    errorType: 'notfound'
+  });
+});
+
+on('trigger500', e => {
+  store.setState({
+    error: 'Internal server error - something went wrong!',
+    errorType: 'server'
+  });
 });
