@@ -2,24 +2,8 @@
 import { h, createElement, diff, patch } from './vdom.js';
 import { createStore } from './store.js';
 
-// Enhanced Event Bus
-const events = {};
-export function on(event, handler) {
-  (events[event] = events[event] || []).push(handler);
-}
-export function once(event, handler) {
-  function wrapper(data) {
-    off(event, wrapper);
-    handler(data);
-  }
-  on(event, wrapper);
-}
-export function off(event, handler) {
-  if (events[event]) events[event] = events[event].filter(h => h !== handler);
-}
-export function emit(event, data) {
-  (events[event] || []).forEach(fn => fn(data));
-}
+import { emit } from './events.js';
+export { on, once, off, emit } from './events.js';
 
 // Minimal path-based Router
 export function createRouter(routes) {
