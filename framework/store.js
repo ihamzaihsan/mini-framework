@@ -1,35 +1,46 @@
-// Minimal observable state store for reactive updates
+function assertObject(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new TypeError('State must be an object.');
+  }
+}
 
 export function createStore(initialState) {
-  let listeners = [];
+  assertObject(initialState);
   let state = { ...initialState };
-  let batching = false;
+  const listeners = new Set();
+  let depth = 0;
   let pending = false;
-
   function notify() {
-    listeners.forEach(fn => fn(state));
+    const snapshot = state;
+    for (const listener of [...listeners]) listener(snapshot);
   }
-
   return {
     getState: () => state,
-    setState: (patch) => {
-      Object.assign(state, patch);
-      if (!batching) {
-        notify();
-      } else {
-        pending = true;
+    setState(update) {
+      const changes = typeof update === 'function' ? update(state) : update;
+      assertObject(changes);
+      if (Object.keys(changes).every(key => Object.is(state[key], changes[key]))) return;
+      state = { ...state, ...changes };
+      if (depth) pending = true;
+      else notify();
+    },
+    subscribe(listener) {
+      if (typeof listener !== 'function') throw new TypeError('Subscriber must be a function.');
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+    batch(callback) {
+      if (typeof callback !== 'function') throw new TypeError('Batch callback must be a function.');
+      depth++;
+      try {
+        return callback();
+      } finally {
+        depth--;
+        if (!depth && pending) {
+          pending = false;
+          notify();
+        }
       }
-    },
-    subscribe: (fn) => {
-      listeners.push(fn);
-      return () => listeners = listeners.filter(l => l !== fn);
-    },
-    batch: (fn) => {
-      batching = true;
-      fn();
-      batching = false;
-      if (pending) notify();
-      pending = false;
     }
   };
 }
