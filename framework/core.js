@@ -1,101 +1,62 @@
-// Core framework: event bus, router stub, and glue code
-import { h, createElement, diff, patch } from './vdom.js';
-import { createStore } from './store.js';
-
+import { createElement, diff, patch } from './vdom.js';
 import { emit } from './events.js';
+
 export { on, once, off, emit } from './events.js';
 
-// Minimal path-based Router
+// Unknown paths are emitted too, allowing an application to render a 404 view.
 export function createRouter(routes) {
-  let current = null;
-  function getRoute() {
-    const path = location.pathname || '/';
-    return routes[path] ? path : '/';
+  if (!routes || typeof routes !== 'object' || Array.isArray(routes)) {
+    throw new TypeError('Routes must be a path-to-value object.');
   }
-  function render() {
-    current = getRoute();
+  let current = location.pathname;
+  let stopped = false;
+  function update() {
+    current = location.pathname;
     emit('route', current);
   }
-  function navigate(path) {
-    history.pushState(null, null, path);
-    render();
-  }
-  
-  // Custom event handling without addEventListener
-  const oldPopStateHandler = window.onpopstate;
-  window.onpopstate = (e) => {
-    render();
-    // Call previous handler if it existed
-    if (oldPopStateHandler) oldPopStateHandler(e);
-  };
-  
-  // Initial render
-  render();
+  window.addEventListener('popstate', update);
+  update();
   return {
     get current() { return current; },
-    navigate,
-    stop() { 
-      window.onpopstate = oldPopStateHandler;
+    get value() { return Object.hasOwn(routes, current) ? routes[current] : undefined; },
+    navigate(path) {
+      if (stopped) throw new Error('Cannot navigate with a stopped router.');
+      if (typeof path !== 'string' || !path.startsWith('/') || path.startsWith('//')) {
+        throw new TypeError('Navigation requires an absolute same-origin path.');
+      }
+      const target = new URL(path, location.origin);
+      if (target.origin !== location.origin) throw new TypeError('Navigation must stay on the same origin.');
+      if (target.href !== location.href) history.pushState(null, '', target);
+      update();
+    },
+    stop() {
+      stopped = true;
+      window.removeEventListener('popstate', update);
     }
   };
 }
 
-// App mounting with batching and requestAnimationFrame
+// One render per animation frame. Retained DOM nodes preserve input focus.
 export function mount(root, view, store) {
-  let scheduled = false;
-  let previousState = store.getState();
-
-  function render() {
-    const currentState = store.getState();
-
-    // Check if only the newTodo value changed (input typing)
-    const onlyInputChanged =
-      previousState.todos === currentState.todos &&
-      previousState.currentFilter === currentState.currentFilter &&
-      previousState.newTodo !== currentState.newTodo;
-
-    if (onlyInputChanged) {
-      // Just update the input value directly without full re-render
-      const inputElement = root.querySelector('#new-todo');
-      if (inputElement && inputElement.value !== currentState.newTodo) {
-        const cursorPosition = inputElement.selectionStart;
-        inputElement.value = currentState.newTodo;
-        inputElement.setSelectionRange(cursorPosition, cursorPosition);
-      }
-    } else {
-      // Full re-render for other changes (todos, filters, etc.)
-      // Save input focus state before re-render
-      const inputElement = root.querySelector('#new-todo');
-      const hadFocus = inputElement && document.activeElement === inputElement;
-      const cursorPosition = hadFocus ? inputElement.selectionStart : 0;
-
-      // Clear and re-render
-      const newVdom = view(currentState);
-      const newNode = createElement(newVdom);
-      root.innerHTML = '';
-      root.appendChild(newNode);
-
-      // Restore input focus if it had focus before
-      if (hadFocus) {
-        const newInputElement = root.querySelector('#new-todo');
-        if (newInputElement) {
-          newInputElement.focus();
-          newInputElement.setSelectionRange(cursorPosition, cursorPosition);
-        }
-      }
-    }
-
-    previousState = { ...currentState };
-    scheduled = false;
+  if (!root || root.nodeType !== 1 || typeof view !== 'function' ||
+      !store || typeof store.subscribe !== 'function' || typeof store.getState !== 'function') {
+    throw new TypeError('mount requires a DOM element, view function, and store.');
   }
-
-  // Initial render
-  render();
-
-  store.subscribe(state => {
-    if (!scheduled) {
-      scheduled = true;
-      requestAnimationFrame(render);
-    }
+  let vnode = view(store.getState());
+  root.replaceChildren(createElement(vnode));
+  let frame = null;
+  const unsubscribe = store.subscribe(() => {
+    if (frame !== null) return;
+    frame = requestAnimationFrame(() => {
+      frame = null;
+      const next = view(store.getState());
+      patch(root, diff(vnode, next));
+      vnode = next;
+    });
   });
+  return () => {
+    unsubscribe();
+    if (frame !== null) cancelAnimationFrame(frame);
+    root.replaceChildren();
+  };
 }
