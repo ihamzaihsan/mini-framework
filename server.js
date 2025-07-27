@@ -1,45 +1,60 @@
-const http = require('http');
-const fs = require('fs');
-const path = require('path');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+const directory = path.dirname(fileURLToPath(import.meta.url));
 
-http.createServer((req, res) => {
-  let file = req.url;
-  
-  // Handle static assets (CSS, JS)
-  if (file.startsWith('/framework/') || file.endsWith('.css') || file.endsWith('.js')) {
-    // Serve static files directly
-    if (file.startsWith('/framework/')) {
-      // Framework files
-      file = file;
-    } else if (file.endsWith('.css') || file.endsWith('.js')) {
-      // TodoMVC assets
-      file = '/todomvc' + file;
-    }
-    
-    const filePath = path.join(__dirname, file);
-    fs.readFile(filePath, (err, data) => {
-      if (err) {
-        res.writeHead(404);
-        res.end('Not Found');
-      } else {
-        const ext = path.extname(file);
-        const contentType = ext === '.js' ? 'application/javascript' : 
-                           ext === '.css' ? 'text/css' : 'text/html';
-        res.writeHead(200, { 'Content-Type': contentType });
-        res.end(data);
-      }
-    });
-  } else {
-    // For all other routes, serve the index.html file (SPA routing)
-    const indexPath = path.join(__dirname, 'todomvc/index.html');
-    fs.readFile(indexPath, (err, data) => {
-      if (err) {
-        res.writeHead(404);
-        res.end('Not Found');
-      } else {
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(data);
-      }
-    });
+const port = Number(process.env.PORT || 3000);
+const host = process.env.HOST || '127.0.0.1';
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error('PORT must be an integer between 1 and 65535.');
+  process.exit(1);
+}
+
+// Serve only public application assets; never expose arbitrary repository files.
+const assets = new Map([
+  ['/app.js', ['todomvc/app.js', 'text/javascript; charset=utf-8']],
+  ['/style.css', ['todomvc/style.css', 'text/css; charset=utf-8']],
+  ...['core', 'events', 'store', 'vdom'].map(name =>
+    ['/framework/' + name + '.js', ['framework/' + name + '.js', 'text/javascript; charset=utf-8']]
+  )
+]);
+const server = http.createServer((req, res) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-cache');
+  const send = (status, type, body) => {
+    res.writeHead(status, { 'Content-Type': type });
+    res.end(req.method === 'HEAD' ? undefined : body);
+  };
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    res.setHeader('Allow', 'GET, HEAD');
+    send(405, 'text/plain; charset=utf-8', 'Method not allowed');
+    return;
   }
-}).listen(3000, () => console.log('Server running at http://localhost:3000'));
+  let pathname;
+  try {
+    pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+  } catch {
+    send(400, 'text/plain; charset=utf-8', 'Invalid URL');
+    return;
+  }
+  const asset = assets.get(pathname);
+  if (!asset && (pathname.startsWith('/framework/') || path.posix.extname(pathname) || pathname.includes('..'))) {
+    send(404, 'text/plain; charset=utf-8', 'Not found');
+    return;
+  }
+  const [file, type] = asset || ['todomvc/index.html', 'text/html; charset=utf-8'];
+  fs.readFile(path.join(directory, file), (error, content) => {
+    if (error) {
+      console.error('Unable to read public asset:', file, error.code);
+      send(500, 'text/plain; charset=utf-8', 'Unable to load the application');
+      return;
+    }
+    send(200, type, content);
+  });
+});
+server.on('error', error => {
+  console.error('Server failed to start:', error.message);
+  process.exitCode = 1;
+});
+server.listen(port, host, () => console.log('Mini Framework: JavaScript UI Framework — http://' + host + ':' + port));
