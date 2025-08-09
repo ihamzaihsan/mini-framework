@@ -108,6 +108,8 @@ h('button', { type: 'button', onclick: () => console.log('clicked') }, 'Click');
 
 Named DOM handlers synchronously emit the browser event through the framework's event bus. Read the event's `currentTarget` inside the handler; for delayed work, capture any needed value first. Use `event.preventDefault()` explicitly where required.
 
+DOM handlers use event properties such as `onclick`; browser history uses `window.onpopstate`. Neither the framework nor the demo calls `addEventListener()`. The router preserves an existing `onpopstate` handler and restores it when the last router stops.
+
 `on(name, handler)` and `once(name, handler)` return cleanup functions. `emit(name, data)` dispatches arbitrary custom data, and `off(name, handler)` removes a specific handler. If a handler throws, dispatch stops and the error propagates. The event bus is shared by modules within this browser application; use distinct names when mounting multiple apps.
 
 ## Store updates and batching

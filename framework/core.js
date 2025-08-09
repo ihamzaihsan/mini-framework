@@ -3,6 +3,15 @@ import { emit } from './events.js';
 
 export { on, once, off, emit } from './events.js';
 
+const historySubscribers = new Set();
+let previousPopState = null;
+
+function handlePopState(event) {
+  const previous = previousPopState;
+  for (const update of [...historySubscribers]) update();
+  if (previous) return previous.call(window, event);
+}
+
 // Unknown paths are emitted too, allowing an application to render a 404 view.
 export function createRouter(routes) {
   if (!routes || typeof routes !== 'object' || Array.isArray(routes)) {
@@ -11,10 +20,15 @@ export function createRouter(routes) {
   let current = location.pathname;
   let stopped = false;
   function update() {
+    if (stopped) return;
     current = location.pathname;
     emit('route', current);
   }
-  window.addEventListener('popstate', update);
+  if (!historySubscribers.size) {
+    previousPopState = window.onpopstate;
+    window.onpopstate = handlePopState;
+  }
+  historySubscribers.add(update);
   update();
   return {
     get current() { return current; },
@@ -31,7 +45,11 @@ export function createRouter(routes) {
     },
     stop() {
       stopped = true;
-      window.removeEventListener('popstate', update);
+      historySubscribers.delete(update);
+      if (!historySubscribers.size && window.onpopstate === handlePopState) {
+        window.onpopstate = previousPopState;
+        previousPopState = null;
+      }
     }
   };
 }
