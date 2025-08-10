@@ -20,6 +20,7 @@ A lightweight JavaScript UI framework built from scratch, with a TodoMVC demo th
 - Filter by All, Active, or Completed.
 - Track remaining tasks, toggle all tasks, and clear completed tasks.
 - Save tasks locally across page reloads.
+- Switch between light and dark mode, with a saved preference.
 - Edit with the keyboard: F2 to start, Enter to save, and Escape to cancel.
 - Responsive layout, accessible controls, and reduced-motion support.
 

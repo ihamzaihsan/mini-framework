@@ -3,6 +3,7 @@ import { createStore } from '../framework/store.js';
 import { mount, createRouter, on } from '../framework/core.js';
 
 const STORAGE_KEY = 'todos-mini-framework';
+const THEME_KEY = 'theme-mini-framework';
 const routes = { '/': 'all', '/active': 'active', '/completed': 'completed' };
 
 function loadTodos() {
@@ -29,7 +30,40 @@ function loadTodos() {
   }
 }
 
-const store = createStore({ ...loadTodos(), newTodo: '', currentFilter: null });
+function loadTheme() {
+  try {
+    const saved = localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') return saved;
+  } catch {
+    // Storage can be blocked; the system preference still provides a default.
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+const store = createStore({
+  ...loadTodos(), newTodo: '', currentFilter: null, theme: loadTheme(), themeWarning: ''
+});
+document.documentElement.dataset.theme = store.getState().theme;
+store.subscribe(state => {
+  if (document.documentElement.dataset.theme !== state.theme) {
+    document.documentElement.dataset.theme = state.theme;
+  }
+});
+
+function themeToggle(state) {
+  return h('div', { class: 'theme-controls', key: 'theme-controls' },
+    h('button', {
+      type: 'button', class: 'theme-toggle', onclick: 'toggleTheme',
+      'aria-pressed': String(state.theme === 'dark'),
+      title: state.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+    }, 'Dark mode')
+  );
+}
+
+function storageNotice(state) {
+  const message = [state.warning, state.themeWarning].filter(Boolean).join(' ');
+  return message ? h('p', { class: 'storage-warning', role: 'status', key: 'warning' }, message) : null;
+}
 
 function filteredTodos(state) {
   if (state.currentFilter === 'active') return state.todos.filter(todo => !todo.completed);
@@ -80,6 +114,8 @@ function todoView(todo) {
 function view(state) {
   if (state.currentFilter === null) {
     return h('section', { class: 'error-content', key: 'not-found' },
+      themeToggle(state),
+      storageNotice(state),
       h('h1', {}, '404'),
       h('h2', {}, 'Page not found'),
       h('p', {}, 'Choose a task filter to return to your list.'),
@@ -92,6 +128,7 @@ function view(state) {
   return h('section', { class: 'todoapp', key: 'todos' },
     h('header', { class: 'header', key: 'header' },
       h('p', { class: 'project-name' }, 'Mini Framework: JavaScript UI Framework'),
+      themeToggle(state),
       h('h1', {}, 'todos'),
       h('input', {
         id: 'new-todo', class: 'new-todo', type: 'text', placeholder: 'What needs to be done?',
@@ -99,7 +136,7 @@ function view(state) {
         oninput: 'inputTodo', onkeydown: 'addTodo'
       })
     ),
-    state.warning ? h('p', { class: 'storage-warning', role: 'status', key: 'warning' }, state.warning) : null,
+    storageNotice(state),
     hasTodos ? h('section', { class: 'main', key: 'main' },
       h('div', { class: 'bulk-actions' },
         h('input', {
@@ -147,6 +184,17 @@ const idFrom = event => event.currentTarget.dataset.id;
 function updateTodo(id, changes) {
   store.setState(state => ({ todos: state.todos.map(todo => todo.id === id ? { ...todo, ...changes } : todo) }));
 }
+
+on('toggleTheme', () => {
+  const theme = store.getState().theme === 'dark' ? 'light' : 'dark';
+  let themeWarning = '';
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    themeWarning = 'The theme preference could not be saved. It will apply in this tab.';
+  }
+  store.setState({ theme, themeWarning });
+});
 
 on('inputTodo', event => store.setState({ newTodo: event.currentTarget.value }));
 on('addTodo', event => {
