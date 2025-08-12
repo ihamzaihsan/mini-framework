@@ -54,9 +54,13 @@ function themeToggle(state) {
   return h('div', { class: 'theme-controls', key: 'theme-controls' },
     h('button', {
       type: 'button', class: 'theme-toggle', onclick: 'toggleTheme',
+      'aria-label': 'Dark mode',
       'aria-pressed': String(state.theme === 'dark'),
       title: state.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
-    }, 'Dark mode')
+    },
+      h('span', { class: 'theme-icon theme-icon--moon', 'aria-hidden': 'true' }),
+      h('span', { class: 'theme-icon theme-icon--sun', 'aria-hidden': 'true' })
+    )
   );
 }
 
