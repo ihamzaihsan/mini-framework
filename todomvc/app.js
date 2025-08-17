@@ -131,8 +131,10 @@ function view(state) {
   const hasTodos = state.todos.length > 0;
   return h('section', { class: 'todoapp', key: 'todos' },
     h('header', { class: 'header', key: 'header' },
-      h('p', { class: 'project-name' }, 'Mini Framework: JavaScript UI Framework'),
-      themeToggle(state),
+      h('div', { class: 'header-toolbar' },
+        h('p', { class: 'project-name' }, 'Mini Framework: JavaScript UI Framework'),
+        themeToggle(state)
+      ),
       h('h1', {}, 'todos'),
       h('input', {
         id: 'new-todo', class: 'new-todo', type: 'text', placeholder: 'What needs to be done?',
