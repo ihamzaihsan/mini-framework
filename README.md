@@ -2,6 +2,8 @@
 
 A lightweight JavaScript UI framework built from scratch, with a TodoMVC demo that brings its features together. Built with vanilla JavaScript and no external dependencies.
 
+**Live Demo:** [View the application](https://mini-framework-eta.vercel.app)
+
 ![TodoMVC in dark mode with a glass theme toggle, task completion, and filters](docs/preview.png)
 
 ## Features
